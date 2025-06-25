@@ -1,0 +1,12 @@
+# Ignore everything by default
+*
+
+# But track only these files/folders
+!app.py
+!moods/
+!requirements.txt
+!.gitignore
+
+# Explicitly ignore the virtual environment folder
+env/
+__pycache__/
