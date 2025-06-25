@@ -1,9 +1,12 @@
-# app.py
 import streamlit as st
 from PIL import Image
 import numpy as np
+import os
 
-# Mood to color mapping
+from openai import OpenAI
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY")) 
+# === Mood-to-color map ===
 mood_color_map = {
     "happy": (255, 223, 0),
     "sad": (70, 130, 180),
@@ -14,27 +17,56 @@ mood_color_map = {
     "tired": (176, 196, 222)
 }
 
-# Function to create pixel art image
+emoji_map = {
+    "happy": "😊", "sad": "😢", "angry": "😠", "neutral": "😐",
+    "anxious": "🫨", "excited": "🤩", "tired": "😴"
+}
+
+# === Pixel Art Generator ===
 def generate_pixel_art(mood: str, size: int = 10):
     mood = mood.lower().strip()
-    color = mood_color_map.get(mood, (128, 128, 128))  # Default gray
+    color = mood_color_map.get(mood, (128, 128, 128))
     pixels = np.full((size, size, 3), color, dtype=np.uint8)
     img = Image.fromarray(pixels, 'RGB')
     return img.resize((200, 200), resample=Image.Resampling.NEAREST)
+def gpt_classify_mood(user_text):
+    prompt = (
+        "Classify the following text into a single mood for visual pixel art. "
+        "Possible moods: happy, sad, angry, tired, excited, anxious, or neutral.\n"
+        f"Text: \"{user_text}\"\nMood:"
+    )
 
-# --- Streamlit UI ---
-st.set_page_config(page_title="🌱 MoodPixel - Emotion-to-Pixel Art Generator", layout="centered")
-st.title("🌱 MoodPixel")
-st.subheader("Turn your mood into pixel art 🎨")
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You're a helpful assistant that outputs only a one-word mood."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.2
+        )
+        mood = response.choices[0].message.content.strip().lower()
+        return mood if mood in mood_color_map else "neutral"
+    except Exception as e:
+        st.error(f"Error classifying mood: {e}")
+        return "neutral"
 
-mood_input = st.text_input("Enter your mood (e.g., happy, sad, tired, excited):")
+# === Streamlit App ===
+st.set_page_config(page_title="🧠 MoodPixel + GPT", layout="centered")
+st.title("🌱 MoodPixel + GPT")
+st.subheader("Type your feelings — GPT decides the mood 🌈")
 
-if mood_input:
-    pixel_art = generate_pixel_art(mood_input)
-    st.image(pixel_art, caption=f"Mood: {mood_input.capitalize()}")
+user_input = st.text_input("How are you feeling right now?")
 
-    # Save option
-    if st.button("Download Pixel Art"):
-        pixel_art.save("mood_pixel_art.png")
-        with open("mood_pixel_art.png", "rb") as file:
-            st.download_button(label="Click to download", data=file, file_name="mood_pixel_art.png", mime="image/png")
+if user_input:
+    mood = gpt_classify_mood(user_input)
+    pixel_img = generate_pixel_art(mood)
+    emoji = emoji_map.get(mood, "")
+
+    st.markdown(f"**GPT Mood:** `{mood}` {emoji}")
+    st.image(pixel_img, caption=f"Pixel art for: {mood}")
+
+    if st.button("Download this mood"):
+        pixel_img.save("moodpixel_gpt.png")
+        with open("moodpixel_gpt.png", "rb") as file:
+            st.download_button("Download Image", file, file_name="moodpixel_gpt.png", mime="image/png")

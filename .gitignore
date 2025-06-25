@@ -1,11 +1,13 @@
-# Ignore everything by default
+# Ignore everything
 *
 
-# But track only these files/folders
+# EXCEPT these:
 !app.py
 !moods/
+!moods/*.png
 !requirements.txt
 !.gitignore
+
 
 # Explicitly ignore the virtual environment folder
 env/
